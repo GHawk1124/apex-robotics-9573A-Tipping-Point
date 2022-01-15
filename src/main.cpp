@@ -2,8 +2,8 @@
 #include "constants.h"
 
 #define TANK
-// #define AUTON
-// #define DEBUG
+#define AUTON
+#define DEBUG
 static Controller masterController;
 
 static ControllerButton liftButton(ControllerDigital::R2);
@@ -86,6 +86,36 @@ void taskLift() {
       }
     }
     pros::Task::delay(20);
+  }
+  liftMotor.moveVoltage(0);
+}
+
+int liftAutoVal;
+bool liftAuto;
+
+void taskLiftAuto() {
+  if (liftAuto) {
+    while (true) {
+      if (liftPot->get() < liftAutoVal) {
+        liftMotor.moveVoltage(
+            12000 * std::clamp(std::fabs((2550 - liftPot->get()) / 1000.0l),
+                               0.9l, 1.0l));
+      } else {
+        liftMotor.moveVoltage(
+            -12000 * std::clamp(std::fabs((2550 - liftPot->get()) / 1000.0l),
+                                0.05l, 1.0l));
+      }
+      if (liftPot->get() > 600) {
+        liftMotor.moveVoltage(
+            -12000 * std::clamp(std::fabs((600 - liftPot->get()) / 1000.0l),
+                                0.75l, 1.0l));
+      } else {
+        liftMotor.moveVoltage(
+            12000 * std::clamp(std::fabs((600 - liftPot->get()) / 1000.0l),
+                               0.05l, 1.0l));
+      }
+      pros::Task::delay(20);
+    }
   }
   liftMotor.moveVoltage(0);
 }
@@ -199,9 +229,11 @@ void Reverse() {
 
 void autonomous() {
 #ifdef AUTON
-  task90Auto = true;
-  lift90val = 3250;
-  pros::Task lift90AutoTask(task90LiftAuto);
+  liftAuto = true;
+  liftAutoVal = 2550;
+  // lift90val = 3250;
+  // pros::Task lift90AutoTask(task90LiftAuto);
+  pros::Task liftAutoTask(taskLiftAuto);
   autoDrive =
       ChassisControllerBuilder()
           .withMotors(leftG, rightG)
@@ -211,25 +243,26 @@ void autonomous() {
           .withOdometry({{2.75_in, 14.5_in}, imev5BlueTPR * (60.0f / 36.0f)},
                         StateMode::FRAME_TRANSFORMATION)
           .buildOdometry();
-  liftController = AsyncPosControllerBuilder()
-                       .withMotor(liftMotor)
-                       .withGearset(AbstractMotor::gearset::red)
-                       // .withGains({0.0, 0.0, 0.0})
-                       .build();
-  lift90Controller = AsyncPosControllerBuilder()
-                         .withMotor(lift90Motor)
-                         .withGearset(AbstractMotor::gearset::red)
-                         // .withGains({0.0, 0.0, 0.0})
-                         .build();
+  // liftController = AsyncPosControllerBuilder()
+  // .withMotor(liftMotor)
+  // .withGearset(AbstractMotor::gearset::red)
+  // .withGains({0.0, 0.0, 0.0})
+  // .build();
+  // lift90Controller = AsyncPosControllerBuilder()
+  // .withMotor(lift90Motor)
+  // .withGearset(AbstractMotor::gearset::red)
+  // .withGains({0.0, 0.0, 0.0})
+  // .build();
   autoDrive->setState({0_in, 0_in, 0_deg});
   // Reverse();
-  lift90val = 1350;
+  // lift90val = 1350;
   pros::delay(1000);
-  autoDrive->driveToPoint({-4.6_ft, 0_ft}, true);
-  autoDrive->setState({0_in, 0_in, 0_deg});
+  autoDrive->driveToPoint({4.6_ft, 0_ft}, false);
+  // autoDrive->setState({0_in, 0_in, 0_deg});
   // lift90val = 3250;
   // autoDrive->driveToPoint({4.5_ft, 0_ft});
-  task90Auto = false;
+  liftHook.set_value(false);
+  liftAuto = false;
   // autoDrive->driveToPoint({1.25_ft, 0_ft}, true);
   // autoDrive->driveToPoint({2.25_ft, 0_ft});
   // Reverse();
@@ -257,7 +290,7 @@ void opcontrol() {
       autonomous();
     }
     // pros::lcd::set_text(7, std::to_string(liftPot->get()));
-    pros::lcd::set_text(7, std::to_string(lift90Pot->get()));
+    // pros::lcd::set_text(7, std::to_string(lift90Pot->get()));
     // std::cout << liftPot->get() << "\n";
 #endif
     if (lowerHookButton.changedToPressed()) {
